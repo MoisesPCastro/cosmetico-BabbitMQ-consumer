@@ -1,14 +1,17 @@
 import { Channel, connect } from "amqplib";
-import { cosmeticoController } from "src/cosmetico/cosmetico.controller";
 import { Server } from "socket.io";
 import * as http from "http";
+import { CosmeticoService } from "../cosmetico/cosmetico.service";
+import { Produtos } from "src/cosmetico/cosmetico.entity";
 
 export default class CosmeticoMessageChannel {
   private _channel: Channel;
-  private _CosmeticoCtrl: cosmeticoController;
   private _io: Server;
 
-  constructor(server: http.Server) {
+  constructor(
+    server: http.Server,
+    private readonly cosmedicoService: CosmeticoService
+  ) {
     this._io = new Server(server, {
       cors: {
         origin: process.env.SOCKET_CLIENT_SERVER,
@@ -36,14 +39,17 @@ export default class CosmeticoMessageChannel {
   async consumeMessages() {
     await this._createMessageChannel();
     if (this._channel) {
-      this._channel.consume(process.env.QUEUE_NAME, async (msg) => {
-        const produtosObj = JSON.parse(msg.content.toString());
-        console.log("Message received");
-        this._channel.ack(msg);
-        this._io.emit(process.env.SOCKET_EVENT_NAME, produtosObj);
-        console.log("New candle emited by web socket");
-      });
-      console.log("Candle consumer started");
+      try {
+        this._channel.consume(process.env.QUEUE_NAME, async (msg) => {
+          const produtosObj: Produtos = await JSON.parse(msg.content.toString());
+          await this.cosmedicoService.save(produtosObj);
+          this._channel.ack(msg);
+          this._io.emit(process.env.SOCKET_EVENT_NAME, produtosObj);
+        });
+        console.log("Cosmedico consumer started");
+      } catch (error) {
+        throw new Error("Erro ao buscar msg rabbitMQ");
+      }
     }
   }
 }

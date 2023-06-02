@@ -1,7 +1,5 @@
 import { Response } from "express";
 import { Produtos } from "./cosmetico.entity";
-
-
 export class IProduto {
   id: number;
   name_produto: string;
@@ -18,6 +16,7 @@ export type IProdutoRequest = Omit<IProduto, "id">;
 
 export interface IService {
     list(): Promise<Produtos []>;
+    save(produtos: Produtos): Promise<void>;
 }
 
 export interface IcosmeticoController {
